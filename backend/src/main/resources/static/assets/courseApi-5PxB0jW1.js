@@ -1,0 +1,1 @@
+import{s as e}from"./request-BEloG7P4.js";const o=()=>e.get("/api/courses"),u=s=>e.get(`/api/courses/${s}`),a=s=>e.post("/api/courses",s),c=(s,r)=>e.put(`/api/courses/${s}`,r),n=s=>e.delete(`/api/courses/${s}`),p=(s,r)=>e.get("/api/courses/search",{params:{keyword:s,courseType:r}});export{u as a,a as c,n as d,o as g,p as s,c as u};
