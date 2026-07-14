@@ -6,6 +6,7 @@ import com.example.studentmanagement.entity.User;
 import com.example.studentmanagement.repository.TeacherRepository;
 import com.example.studentmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -24,6 +25,7 @@ public class TeacherController {
 
     // 获取所有教师
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<List<User>> getAllTeachers(Principal principal) {
         List<User> teachers;
         if (principal == null) {
@@ -56,6 +58,7 @@ public class TeacherController {
 
     // 根据ID获取教师
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<User> getTeacherById(@PathVariable Long id, Principal principal) {
         if (principal == null) {
             // 未登录用户无权限查看教师信息
@@ -86,6 +89,7 @@ public class TeacherController {
 
     // 创建教师
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseResult<User> createTeacher(@RequestBody User teacher, Principal principal) {
         if (principal == null) {
             // 未登录用户无权限创建教师
@@ -137,6 +141,7 @@ public class TeacherController {
 
     // 更新教师
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<User> updateTeacher(@PathVariable Long id, @RequestBody User teacher, Principal principal) {
         if (principal == null) {
             // 未登录用户无权限更新教师信息
@@ -181,6 +186,7 @@ public class TeacherController {
 
     // 删除教师
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseResult<String> deleteTeacher(@PathVariable Long id, Principal principal) {
         if (principal == null) {
             // 未登录用户无权限删除教师
@@ -212,6 +218,7 @@ public class TeacherController {
 
     // 检查工号是否存在
     @GetMapping("/check-employee-id")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseResult<Boolean> checkEmployeeId(@RequestParam String employeeId) {
         boolean exists = userService.existsByEmployeeId(employeeId);
         return ResponseResult.success(exists);

@@ -320,8 +320,8 @@ const searchStudentsList = async () => {
   loading.value = true
   try {
     // 合并搜索条件
-    const keyword = searchForm.name || searchForm.student_id
-    const className = searchForm.class
+    const keyword = searchForm.name || searchForm.studentId
+    const className = searchForm.className
     
     // 调用后端API进行搜索
     const response = await searchStudents(keyword, className)
@@ -342,9 +342,9 @@ const searchStudentsList = async () => {
 // 处理重置
 const handleReset = async () => {
   Object.assign(searchForm, {
-    student_id: '',
+    studentId: '',
     name: '',
-    class: '',
+    className: '',
     status: ''
   })
   

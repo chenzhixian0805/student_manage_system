@@ -15,12 +15,16 @@ const service: ExtendedAxiosInstance = axios.create({
   timeout: 30000
 }) as ExtendedAxiosInstance
 
+// 扩展配置类型
+interface ExtendedInternalAxiosRequestConfig extends InternalAxiosRequestConfig {
+  silent?: boolean;
+  hideSuccessMessage?: boolean;
+}
+
 // 请求拦截器
 service.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  (config: ExtendedInternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token')
-    console.log('请求URL:', config.url)
-    console.log('请求Token:', token)
     if (token) {
       config.headers = config.headers || {}
       config.headers.Authorization = `Bearer ${token}`
@@ -38,18 +42,19 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse) => {
     const res = response.data
+    const config = response.config as ExtendedInternalAxiosRequestConfig
     
     // 根据后端返回的状态码处理
     if (res.code !== 200) {
-      // 处理业务错误
-      // 对于统计类和获取数据类接口，不显示错误信息，只在控制台打印
-      if (res.message && !response.config.url?.includes('/count') && !response.config.url?.includes('/statistics') && !response.config.url?.includes('/grades')) {
+      // 处理业务错误，只有非静默请求才弹窗
+      if (res.message && !config.silent) {
         ElMessage.error(res.message || '操作失败')
       }
       return Promise.reject(new Error(res.message || 'Error'))
     } else {
-      // 操作成功，显示成功消息（只对修改类操作）
-      if (res.message && (response.config.method === 'post' || response.config.method === 'put' || response.config.method === 'delete')) {
+      // 操作成功，显示成功消息（只对修改类操作且未隐藏消息）
+      if (res.message && !config.hideSuccessMessage && 
+          (config.method === 'post' || config.method === 'put' || config.method === 'delete')) {
         ElMessage.success(res.message)
       }
       return res.data
@@ -58,29 +63,22 @@ service.interceptors.response.use(
   (error) => {
     // 处理HTTP错误
     let errorMessage = '网络请求失败，请稍后重试'
+    const config = (error.config as ExtendedInternalAxiosRequestConfig) || {}
     
     if (error.response) {
-      // 获取请求URL，用于特殊处理某些接口
-      const requestUrl = error.config?.url || ''
-      
       switch (error.response.status) {
         case 400:
           errorMessage = '请求参数错误'
           break
         case 401:
-          // 对于统计类接口，不强制跳转登录，只显示错误信息
-          if (requestUrl.includes('/count') || requestUrl.includes('/statistics') || requestUrl.includes('/grades')) {
-            errorMessage = '获取数据失败，请稍后重试'
-          } else {
-            errorMessage = '登录已过期，请重新登录'
-            // 清除本地存储的token和用户信息
-            localStorage.removeItem('token')
-            localStorage.removeItem('userInfo')
-            // 跳转到登录页面
-            setTimeout(() => {
-              window.location.href = '/login'
-            }, 1500)
-          }
+          errorMessage = '登录已过期，请重新登录'
+          // 清除本地存储的token和用户信息
+          localStorage.removeItem('token')
+          localStorage.removeItem('userInfo')
+          // 跳转到登录页面
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 1500)
           break
         case 403:
           errorMessage = '没有权限执行此操作'
@@ -99,8 +97,8 @@ service.interceptors.response.use(
       errorMessage = '网络超时，请稍后重试'
     }
     
-    // 对于获取成绩列表等数据类接口，不显示错误信息，只在控制台打印
-    if (!error.config?.url?.includes('/grades')) {
+    // 只有非静默请求才弹窗
+    if (!config.silent) {
       ElMessage.error(errorMessage)
     }
     console.error('请求失败:', error)

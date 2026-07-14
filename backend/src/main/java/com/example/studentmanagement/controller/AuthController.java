@@ -227,22 +227,6 @@ public class AuthController {
         }
     }
     
-    // 临时方法：更新所有用户的密码
-    @PostMapping("/update-all-password")
-    public ResponseResult<String> updateAllUsersPassword(@RequestBody Map<String, String> request) {
-        try {
-            String password = request.get("password");
-            if (password == null || password.isEmpty()) {
-                return ResponseResult.error(400, "密码不能为空");
-            }
-            
-            userService.updateAllUsersPassword(password);
-            return ResponseResult.success("所有用户密码更新成功");
-        } catch (Exception e) {
-            return ResponseResult.error(500, "更新密码失败：" + e.getMessage());
-        }
-    }
-
     // 登录请求参数类
     public static class LoginRequest {
         private String username;

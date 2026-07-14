@@ -4,12 +4,14 @@ import com.example.studentmanagement.entity.ResponseResult;
 import com.example.studentmanagement.entity.User;
 import com.example.studentmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
+@PreAuthorize("hasRole('ADMIN')")
 public class UserController {
 
     @Autowired
@@ -35,7 +37,6 @@ public class UserController {
     // 创建用户
     @PostMapping
     public ResponseResult<User> createUser(@RequestBody User user) {
-        // 默认状态为启用
         if (user.getStatus() == null) {
             user.setStatus(1);
         }
@@ -86,7 +87,6 @@ public class UserController {
                                                 @RequestParam(required = false) String role,
                                                 @RequestParam(required = false) String status) {
         List<User> users = userService.getAllUsers();
-        // 前端进行筛选
         return ResponseResult.success(users);
     }
     

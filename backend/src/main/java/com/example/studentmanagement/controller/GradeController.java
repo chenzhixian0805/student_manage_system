@@ -13,6 +13,7 @@ import com.example.studentmanagement.service.GradeService;
 import com.example.studentmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -167,6 +168,7 @@ public class GradeController {
 
     // 创建成绩
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<Grade> createGrade(@RequestBody GradeRequest gradeRequest) {
         // 根据student_id查询对应的Student对象
         Student student = studentRepository.findById(gradeRequest.getStudentId()).orElse(null);
@@ -212,6 +214,7 @@ public class GradeController {
 
     // 更新成绩
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<Grade> updateGrade(@PathVariable Long id, @RequestBody GradeRequest gradeRequest) {
         // 首先查询要更新的成绩
         Grade grade = gradeService.getGradeById(id);
@@ -262,6 +265,7 @@ public class GradeController {
 
     // 删除成绩
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<String> deleteGrade(@PathVariable Long id) {
         gradeService.deleteGrade(id);
         return ResponseResult.success("Grade deleted successfully");

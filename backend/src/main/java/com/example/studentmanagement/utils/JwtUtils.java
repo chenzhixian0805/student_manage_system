@@ -16,8 +16,8 @@ import java.util.UUID;
 @Component
 public class JwtUtils {
 
-    // 从配置文件读取密钥
-    @Value("${jwt.secret:student-manage-system-secret-key-2024-very-secure-please-change-in-production}")
+    // 从配置文件读取密钥，必须通过环境变量提供
+    @Value("${jwt.secret}")
     private String secretKeyString;
     
     // 从配置文件读取Token有效期，默认24小时

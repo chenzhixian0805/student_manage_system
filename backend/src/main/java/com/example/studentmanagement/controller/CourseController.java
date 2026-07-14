@@ -186,6 +186,7 @@ public class CourseController {
 
     // 创建课程
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<Course> createCourse(@RequestBody Course course, Principal principal) {
         if (principal == null) {
             return ResponseResult.error(401, "用户未登录");
@@ -210,6 +211,7 @@ public class CourseController {
 
     // 更新课程
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<Course> updateCourse(@PathVariable Long id, @RequestBody Course course, Principal principal) {
         if (principal == null) {
             return ResponseResult.error(401, "用户未登录");
@@ -248,6 +250,7 @@ public class CourseController {
     // 删除课程
     @DeleteMapping("/{id}")
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public ResponseResult<String> deleteCourse(@PathVariable Long id, Principal principal) {
         if (principal == null) {
             return ResponseResult.error(401, "用户未登录");
