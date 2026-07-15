@@ -17,6 +17,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,59 @@ public class GradeController {
     
     @Autowired
     private SelectionRepository selectionRepository;
+
+    private Map<String, Object> toGradeMap(Grade grade) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", grade.getId());
+        map.put("score", grade.getScore());
+        map.put("gpa", grade.getGpa());
+        map.put("semester", grade.getSemester());
+        map.put("creditGpa", grade.getCreditGpa());
+        map.put("examDateTime", grade.getExamDateTime() != null
+                ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(grade.getExamDateTime())
+                : null);
+
+        Student student = grade.getStudent();
+        if (student != null) {
+            Map<String, Object> studentMap = new HashMap<>();
+            studentMap.put("id", student.getId());
+            studentMap.put("studentId", student.getStudentId());
+            studentMap.put("name", student.getName());
+            studentMap.put("className", student.getClassName());
+            studentMap.put("gender", student.getGender());
+            map.put("student", studentMap);
+        } else {
+            Map<String, Object> studentMap = new HashMap<>();
+            studentMap.put("id", grade.getStudentId());
+            studentMap.put("studentId", "");
+            studentMap.put("name", "");
+            studentMap.put("className", "");
+            map.put("student", studentMap);
+        }
+
+        Course course = grade.getCourse();
+        if (course != null) {
+            Map<String, Object> courseMap = new HashMap<>();
+            courseMap.put("id", course.getId());
+            courseMap.put("courseId", course.getCourseId());
+            courseMap.put("name", course.getName());
+            courseMap.put("credit", course.getCredit());
+            map.put("course", courseMap);
+        } else {
+            Map<String, Object> courseMap = new HashMap<>();
+            courseMap.put("id", grade.getCourseId());
+            courseMap.put("courseId", "");
+            courseMap.put("name", "");
+            map.put("course", courseMap);
+        }
+
+        return map;
+    }
+
+    private List<Map<String, Object>> toGradeMapList(List<Grade> grades) {
+        if (grades == null) return new ArrayList<>();
+        return grades.stream().map(this::toGradeMap).toList();
+    }
 
     // 获取所有成绩 - 支持分页
     @GetMapping
@@ -73,7 +128,7 @@ public class GradeController {
             if ("ROLE_ADMIN".equals(currentUser.getRole())) {
                 // 管理员可以查看所有成绩
                 Page<Grade> gradePage = gradeService.getAllGrades(page, size);
-                response.put("content", gradePage.getContent() != null ? gradePage.getContent() : List.of());
+                response.put("content", toGradeMapList(gradePage.getContent()));
                 response.put("totalElements", gradePage.getTotalElements());
                 response.put("totalPages", gradePage.getTotalPages());
                 response.put("currentPage", gradePage.getNumber());
@@ -81,9 +136,9 @@ public class GradeController {
             } else if ("ROLE_TEACHER".equals(currentUser.getRole())) {
                 // 教师只能查看自己课程的成绩 - 暂不支持分页
                 List<Grade> grades = gradeService.getGradesByTeacherId(currentUser.getId());
-                // 过滤掉课程为null的成绩
-                List<Grade> filteredGrades = grades != null ? grades.stream()
+                List<Map<String, Object>> filteredGrades = grades != null ? grades.stream()
                     .filter(grade -> grade.getCourse() != null)
+                    .map(this::toGradeMap)
                     .toList() : List.of();
                 response.put("content", filteredGrades);
                 response.put("totalElements", filteredGrades.size());
@@ -93,9 +148,9 @@ public class GradeController {
             } else {
                 // 学生可以查看自己的成绩 - 暂不支持分页
                 List<Grade> grades = gradeService.getGradesByStudentNumber(currentUser.getUsername());
-                // 过滤掉课程为null的成绩
-                List<Grade> filteredGrades = grades != null ? grades.stream()
+                List<Map<String, Object>> filteredGrades = grades != null ? grades.stream()
                     .filter(grade -> grade.getCourse() != null)
+                    .map(this::toGradeMap)
                     .toList() : List.of();
                 response.put("content", filteredGrades);
                 response.put("totalElements", filteredGrades.size());
@@ -115,18 +170,16 @@ public class GradeController {
 
     // 根据ID获取成绩
     @GetMapping("/{id}")
-    public ResponseResult<Grade> getGradeById(@PathVariable Long id, Principal principal) {
+    public ResponseResult<Map<String, Object>> getGradeById(@PathVariable Long id, Principal principal) {
         Grade grade = gradeService.getGradeById(id);
         if (grade == null) {
             return ResponseResult.error(404, "Grade not found");
         }
         
         if (principal != null) {
-            // 获取当前登录用户
             String username = principal.getName();
             User currentUser = userService.findByUsername(username);
             if (currentUser != null && "ROLE_TEACHER".equals(currentUser.getRole())) {
-                // 教师只能查看自己课程的成绩
                 if (grade.getCourse() == null) {
                     return ResponseResult.error(403, "无权限查看该成绩");
                 }
@@ -139,7 +192,7 @@ public class GradeController {
             }
         }
         
-        return ResponseResult.success(grade);
+        return ResponseResult.success(toGradeMap(grade));
     }
 
     // 用于接收前端传递的成绩数据
@@ -169,7 +222,7 @@ public class GradeController {
     // 创建成绩
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public ResponseResult<Grade> createGrade(@RequestBody GradeRequest gradeRequest) {
+    public ResponseResult<Map<String, Object>> createGrade(@RequestBody GradeRequest gradeRequest) {
         // 根据student_id查询对应的Student对象
         Student student = studentRepository.findById(gradeRequest.getStudentId()).orElse(null);
         if (student == null) {
@@ -209,13 +262,13 @@ public class GradeController {
         
         // 保存成绩
         Grade savedGrade = gradeService.saveGrade(grade);
-        return ResponseResult.success("Grade created successfully", savedGrade);
+        return ResponseResult.success("Grade created successfully", toGradeMap(savedGrade));
     }
 
     // 更新成绩
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public ResponseResult<Grade> updateGrade(@PathVariable Long id, @RequestBody GradeRequest gradeRequest) {
+    public ResponseResult<Map<String, Object>> updateGrade(@PathVariable Long id, @RequestBody GradeRequest gradeRequest) {
         // 首先查询要更新的成绩
         Grade grade = gradeService.getGradeById(id);
         if (grade == null) {
@@ -260,7 +313,7 @@ public class GradeController {
         
         // 保存更新
         Grade updatedGrade = gradeService.saveGrade(grade);
-        return ResponseResult.success("Grade updated successfully", updatedGrade);
+        return ResponseResult.success("Grade updated successfully", toGradeMap(updatedGrade));
     }
 
     // 删除成绩
@@ -273,7 +326,7 @@ public class GradeController {
 
     // 根据学生ID获取成绩
     @GetMapping("/by-student/{studentId}")
-    public ResponseResult<List<Grade>> getGradesByStudentId(@PathVariable Long studentId, Principal principal) {
+    public ResponseResult<List<Map<String, Object>>> getGradesByStudentId(@PathVariable Long studentId, Principal principal) {
         try {
             List<Grade> grades = gradeService.getGradesByStudentId(studentId);
             
@@ -308,7 +361,7 @@ public class GradeController {
                 }
             }
             
-            return ResponseResult.success(grades);
+            return ResponseResult.success(toGradeMapList(grades));
         } catch (Exception e) {
             return ResponseResult.error(500, "获取学生成绩失败: " + e.getMessage());
         }
@@ -316,14 +369,12 @@ public class GradeController {
 
     // 根据课程ID获取成绩
     @GetMapping("/by-course/{courseId}")
-    public ResponseResult<List<Grade>> getGradesByCourseId(@PathVariable Long courseId, Principal principal) {
+    public ResponseResult<List<Map<String, Object>>> getGradesByCourseId(@PathVariable Long courseId, Principal principal) {
         try {
             if (principal != null) {
-                // 获取当前登录用户
                 String username = principal.getName();
                 User currentUser = userService.findByUsername(username);
                 if (currentUser != null && "ROLE_TEACHER".equals(currentUser.getRole())) {
-                    // 教师只能查看自己课程的成绩
                     List<Course> teacherCourses = courseRepository.findByTeacher_Id(currentUser.getId());
                     boolean isTeacherCourse = teacherCourses.stream()
                         .anyMatch(course -> course.getId().equals(courseId));
@@ -334,7 +385,7 @@ public class GradeController {
             }
             
             List<Grade> grades = gradeService.getGradesByCourseId(courseId);
-            return ResponseResult.success(grades);
+            return ResponseResult.success(toGradeMapList(grades));
         } catch (Exception e) {
             return ResponseResult.error(500, "获取课程成绩失败: " + e.getMessage());
         }
@@ -342,7 +393,7 @@ public class GradeController {
 
     // 根据学期获取成绩
     @GetMapping("/by-semester/{semester}")
-    public ResponseResult<List<Grade>> getGradesBySemester(@PathVariable String semester, Principal principal) {
+    public ResponseResult<List<Map<String, Object>>> getGradesBySemester(@PathVariable String semester, Principal principal) {
         try {
             List<Grade> grades;
             if (principal == null) {
@@ -379,7 +430,7 @@ public class GradeController {
                 }
             }
             
-            return ResponseResult.success(grades);
+            return ResponseResult.success(toGradeMapList(grades));
         } catch (Exception e) {
             return ResponseResult.error(500, "获取学期成绩失败: " + e.getMessage());
         }
@@ -387,18 +438,16 @@ public class GradeController {
 
     // 根据学生ID和学期获取成绩
     @GetMapping("/by-student-and-semester/{studentId}/{semester}")
-    public ResponseResult<List<Grade>> getGradesByStudentIdAndSemester(@PathVariable Long studentId, @PathVariable String semester, Principal principal) {
+    public ResponseResult<List<Map<String, Object>>> getGradesByStudentIdAndSemester(@PathVariable Long studentId, @PathVariable String semester, Principal principal) {
         try {
             List<Grade> grades;
             if (principal != null) {
-                // 获取当前登录用户
                 String username = principal.getName();
                 User currentUser = userService.findByUsername(username);
                 if (currentUser != null && "ROLE_TEACHER".equals(currentUser.getRole())) {
-                    // 教师只能查看自己课程的成绩
                     List<Course> teacherCourses = courseRepository.findByTeacher_Id(currentUser.getId());
                     grades = gradeService.getGradesByStudentIdAndSemester(studentId, semester).stream()
-                        .filter(grade -> grade.getCourse() != null) // 添加null检查
+                        .filter(grade -> grade.getCourse() != null)
                         .filter(grade -> {
                             Long gradeCourseId = grade.getCourse().getId();
                             return teacherCourses.stream()
@@ -406,15 +455,13 @@ public class GradeController {
                         })
                         .toList();
                 } else {
-                    // 管理员或学生可以查看所有成绩
                     grades = gradeService.getGradesByStudentIdAndSemester(studentId, semester);
                 }
             } else {
-                // 未登录，返回空列表
                 grades = List.of();
             }
             
-            return ResponseResult.success(grades);
+            return ResponseResult.success(toGradeMapList(grades));
         } catch (Exception e) {
             return ResponseResult.error(500, "获取学生学期成绩失败: " + e.getMessage());
         }
@@ -422,14 +469,12 @@ public class GradeController {
 
     // 根据课程ID和学期获取成绩
     @GetMapping("/by-course-and-semester/{courseId}/{semester}")
-    public ResponseResult<List<Grade>> getGradesByCourseIdAndSemester(@PathVariable Long courseId, @PathVariable String semester, Principal principal) {
+    public ResponseResult<List<Map<String, Object>>> getGradesByCourseIdAndSemester(@PathVariable Long courseId, @PathVariable String semester, Principal principal) {
         try {
             if (principal != null) {
-                // 获取当前登录用户
                 String username = principal.getName();
                 User currentUser = userService.findByUsername(username);
                 if (currentUser != null && "ROLE_TEACHER".equals(currentUser.getRole())) {
-                    // 教师只能查看自己课程的成绩
                     List<Course> teacherCourses = courseRepository.findByTeacher_Id(currentUser.getId());
                     boolean isTeacherCourse = teacherCourses.stream()
                         .anyMatch(course -> course.getId().equals(courseId));
@@ -440,7 +485,7 @@ public class GradeController {
             }
             
             List<Grade> grades = gradeService.getGradesByCourseIdAndSemester(courseId, semester);
-            return ResponseResult.success(grades);
+            return ResponseResult.success(toGradeMapList(grades));
         } catch (Exception e) {
             return ResponseResult.error(500, "获取课程学期成绩失败: " + e.getMessage());
         }
@@ -681,7 +726,7 @@ public class GradeController {
     
     // 搜索成绩
     @GetMapping("/search")
-    public ResponseResult<List<Grade>> searchGrades(
+    public ResponseResult<List<Map<String, Object>>> searchGrades(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String courseType,
             @RequestParam(required = false) String semester,
@@ -734,7 +779,7 @@ public class GradeController {
                     .toList();
             }
             
-            return ResponseResult.success(grades);
+            return ResponseResult.success(toGradeMapList(grades));
         } catch (Exception e) {
             return ResponseResult.error(500, "搜索成绩失败: " + e.getMessage());
         }
