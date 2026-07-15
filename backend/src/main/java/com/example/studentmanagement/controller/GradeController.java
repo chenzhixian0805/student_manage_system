@@ -674,7 +674,7 @@ public class GradeController {
             }
             
             Grade grade = gradeService.getGradeByStudentIdAndCourseId(studentId, courseId);
-            return ResponseResult.success(grade);
+            return ResponseResult.success(toGradeMap(grade));
         } catch (Exception e) {
             return ResponseResult.error(500, "获取学生课程成绩失败: " + e.getMessage());
         }
